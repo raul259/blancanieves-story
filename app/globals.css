@@ -1,0 +1,260 @@
+@import "tailwindcss";
+
+* {
+  cursor: url("https://cdn.cursors-4u.net/css-previews/red-apple-being-eaten-1b24c7af-css.webp") 0 0, auto !important;
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --muted-foreground: #52525b;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), "Trebuchet MS", sans-serif;
+  margin: 0;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+.prelude-glow {
+  background:
+    radial-gradient(circle at 18% 18%, rgb(251 191 36 / 0.16), transparent 32%),
+    radial-gradient(circle at 78% 24%, rgb(244 114 182 / 0.14), transparent 34%),
+    radial-gradient(circle at 50% 86%, rgb(253 224 71 / 0.12), transparent 36%);
+}
+
+.effect-fog {
+  pointer-events: none;
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(circle at center, rgb(255 255 255 / 0.55), transparent 70%);
+  filter: blur(24px);
+  opacity: 0.8;
+  z-index: 2;
+}
+
+.effect-fog-a {
+  width: 45vw;
+  height: 30vw;
+  left: -5vw;
+  top: 35%;
+  animation: fogDriftA 16s linear infinite;
+}
+
+.effect-fog-b {
+  width: 50vw;
+  height: 32vw;
+  right: -8vw;
+  top: 18%;
+  animation: fogDriftB 19s linear infinite;
+}
+
+.effect-rain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.effect-rain span {
+  position: absolute;
+  width: 2px;
+  height: 70px;
+  background: linear-gradient(to bottom, rgb(255 255 255 / 0), rgb(219 234 254 / 0.95));
+  border-radius: 9999px;
+  animation: rainFall linear infinite;
+}
+
+.effect-rain span:nth-child(odd) {
+  animation-duration: 1.1s;
+}
+
+.effect-rain span:nth-child(even) {
+  animation-duration: 1.4s;
+}
+
+.effect-wind {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.effect-wind span {
+  position: absolute;
+  height: 2px;
+  width: 120px;
+  background: linear-gradient(to right, transparent, rgb(255 255 255 / 0.9), transparent);
+  border-radius: 9999px;
+  animation: windFlow 3.6s ease-in-out infinite;
+}
+
+.effect-rain span:nth-child(1) { left: 3%; animation-delay: 0.4s; }
+.effect-rain span:nth-child(2) { left: 8%; animation-delay: 0.2s; }
+.effect-rain span:nth-child(3) { left: 14%; animation-delay: 0.8s; }
+.effect-rain span:nth-child(4) { left: 21%; animation-delay: 0.6s; }
+.effect-rain span:nth-child(5) { left: 27%; animation-delay: 0.3s; }
+.effect-rain span:nth-child(6) { left: 32%; animation-delay: 0.9s; }
+.effect-rain span:nth-child(7) { left: 38%; animation-delay: 0.1s; }
+.effect-rain span:nth-child(8) { left: 44%; animation-delay: 0.7s; }
+.effect-rain span:nth-child(9) { left: 49%; animation-delay: 0.2s; }
+.effect-rain span:nth-child(10) { left: 55%; animation-delay: 0.65s; }
+.effect-rain span:nth-child(11) { left: 60%; animation-delay: 0.15s; }
+.effect-rain span:nth-child(12) { left: 67%; animation-delay: 0.95s; }
+.effect-rain span:nth-child(13) { left: 72%; animation-delay: 0.25s; }
+.effect-rain span:nth-child(14) { left: 78%; animation-delay: 0.55s; }
+.effect-rain span:nth-child(15) { left: 83%; animation-delay: 0.4s; }
+.effect-rain span:nth-child(16) { left: 89%; animation-delay: 0.85s; }
+.effect-rain span:nth-child(17) { left: 95%; animation-delay: 0.3s; }
+.effect-rain span:nth-child(18) { left: 99%; animation-delay: 0.5s; }
+.effect-rain span:nth-child(19) { left: 6%; animation-delay: 0.13s; }
+.effect-rain span:nth-child(20) { left: 12%; animation-delay: 0.47s; }
+.effect-rain span:nth-child(21) { left: 18%; animation-delay: 0.74s; }
+.effect-rain span:nth-child(22) { left: 24%; animation-delay: 0.58s; }
+.effect-rain span:nth-child(23) { left: 30%; animation-delay: 0.24s; }
+.effect-rain span:nth-child(24) { left: 35%; animation-delay: 0.67s; }
+.effect-rain span:nth-child(25) { left: 41%; animation-delay: 0.82s; }
+.effect-rain span:nth-child(26) { left: 47%; animation-delay: 0.34s; }
+.effect-rain span:nth-child(27) { left: 52%; animation-delay: 0.78s; }
+.effect-rain span:nth-child(28) { left: 58%; animation-delay: 0.41s; }
+.effect-rain span:nth-child(29) { left: 64%; animation-delay: 0.96s; }
+.effect-rain span:nth-child(30) { left: 69%; animation-delay: 0.19s; }
+.effect-rain span:nth-child(31) { left: 75%; animation-delay: 0.59s; }
+.effect-rain span:nth-child(32) { left: 80%; animation-delay: 0.73s; }
+.effect-rain span:nth-child(33) { left: 86%; animation-delay: 0.44s; }
+.effect-rain span:nth-child(34) { left: 91%; animation-delay: 0.14s; }
+.effect-rain span:nth-child(35) { left: 96%; animation-delay: 0.88s; }
+.effect-rain span:nth-child(36) { left: 2%; animation-delay: 0.36s; }
+
+.effect-wind span:nth-child(1) { top: 17%; left: -20%; animation-delay: 0s; }
+.effect-wind span:nth-child(2) { top: 24%; left: -35%; animation-delay: 0.4s; }
+.effect-wind span:nth-child(3) { top: 31%; left: -12%; animation-delay: 0.9s; }
+.effect-wind span:nth-child(4) { top: 39%; left: -28%; animation-delay: 1.5s; }
+.effect-wind span:nth-child(5) { top: 48%; left: -18%; animation-delay: 0.7s; }
+.effect-wind span:nth-child(6) { top: 56%; left: -30%; animation-delay: 2s; }
+.effect-wind span:nth-child(7) { top: 63%; left: -16%; animation-delay: 1.2s; }
+.effect-wind span:nth-child(8) { top: 72%; left: -26%; animation-delay: 2.4s; }
+.effect-wind span:nth-child(9) { top: 80%; left: -20%; animation-delay: 1.8s; }
+.effect-wind span:nth-child(10) { top: 88%; left: -34%; animation-delay: 2.7s; }
+
+@keyframes fogDriftA {
+  0% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(22vw) translateY(-1.5vw); }
+  100% { transform: translateX(45vw) translateY(0.8vw); }
+}
+
+@keyframes fogDriftB {
+  0% { transform: translateX(0) translateY(0); }
+  50% { transform: translateX(-18vw) translateY(1.1vw); }
+  100% { transform: translateX(-40vw) translateY(-0.6vw); }
+}
+
+@keyframes rainFall {
+  0% {
+    transform: translateY(-100px) translateX(0) rotate(14deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) translateX(-22px) rotate(14deg);
+    opacity: 0;
+  }
+}
+
+@keyframes windFlow {
+  0% {
+    transform: translateX(0) scaleX(0.5);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateX(135vw) scaleX(1);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 1024px) {
+  .effect-fog-a,
+  .effect-fog-b {
+    width: 62vw;
+    height: 42vw;
+  }
+}
+
+.story-shell {
+  background:
+    radial-gradient(circle at top, rgb(244 114 182 / 0.1), transparent 28%),
+    radial-gradient(circle at 20% 20%, rgb(251 191 36 / 0.1), transparent 24%),
+    linear-gradient(180deg, #2a1712 0%, #1c110d 45%, #130b08 100%);
+}
+
+.story-atmosphere {
+  background:
+    radial-gradient(circle at 12% 18%, rgb(255 214 102 / 0.12), transparent 0 18rem),
+    radial-gradient(circle at 88% 14%, rgb(251 113 133 / 0.12), transparent 0 16rem),
+    radial-gradient(circle at 50% 100%, rgb(255 237 213 / 0.06), transparent 0 28rem);
+}
+
+.story-scroller {
+  scroll-snap-type: y mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(253 230 138 / 0.5) transparent;
+}
+
+.story-scroller::-webkit-scrollbar {
+  width: 10px;
+}
+
+.story-scroller::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(253 230 138 / 0.45);
+}
+
+.story-scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.03) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .story-shell {
+    height: 100dvh;
+  }
+}
