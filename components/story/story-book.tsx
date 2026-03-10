@@ -12,6 +12,9 @@ import { storyScenes } from "./story-data";
 
 gsap.registerPlugin(ScrollTrigger);
 
+// 2 extra panels before story scenes: saludos video + panorama
+const EXTRA_PANELS = 2;
+
 const narrationByScene: Record<number, string> = {
   1: "/Narrador/en%20un%20reino.mp3",
   2: "/Narrador/lareina%20preguntaba.mp3",
@@ -26,7 +29,6 @@ const narrationByScene: Record<number, string> = {
 };
 
 const videoByScene: Partial<Record<number, string>> = {
-  1: "/saludoblancanieves.mp4",
   2: "/reina frente espejo.mp4",
   5: "/corre blancanieves.mp4",
   10: "/depedida.mp4",
@@ -41,7 +43,7 @@ export function StoryBook() {
   const frameRef = useRef<number | null>(null);
   const introAudioTimerRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const totalSections = storyScenes.length + 1;
+  const totalSections = storyScenes.length + 1 + EXTRA_PANELS;
 
   // Lenis smooth scroll
   useEffect(() => {
@@ -67,7 +69,7 @@ export function StoryBook() {
     };
   }, []);
 
-  // Horizontal scroll: pin wrapper, translate track
+  // Horizontal scroll: pin wrapper, translate track + animations
   useEffect(() => {
     const pinWrap = pinWrapRef.current;
     const track = trackRef.current;
@@ -92,10 +94,10 @@ export function StoryBook() {
       },
     });
 
-    // Card content fade-in per scene using containerAnimation
-    const panels = track.querySelectorAll<HTMLElement>("[data-scene-panel]");
     const cleanups: Array<() => void> = [];
 
+    // Card content fade-in per scene
+    const panels = track.querySelectorAll<HTMLElement>("[data-scene-panel]");
     panels.forEach((panel) => {
       const content = panel.querySelector("[data-scene-content]");
       if (!content) return;
@@ -120,6 +122,30 @@ export function StoryBook() {
       cleanups.push(() => tween.kill());
     });
 
+    // Panorama image horizontal pan
+    const panoramaPanel = track.querySelector<HTMLElement>("[data-panorama-panel]");
+    const panoramaImage = track.querySelector<HTMLElement>("[data-panorama-image]");
+
+    if (panoramaPanel && panoramaImage) {
+      // Image is 160vw wide; pan from left to right across 60vw
+      const panTween = gsap.fromTo(
+        panoramaImage,
+        { xPercent: 0 },
+        {
+          xPercent: -37.5, // -60vw / 160vw * 100
+          ease: "none",
+          scrollTrigger: {
+            containerAnimation: horizontalTween,
+            trigger: panoramaPanel,
+            start: "left right",
+            end: "right left",
+            scrub: true,
+          },
+        },
+      );
+      cleanups.push(() => panTween.kill());
+    }
+
     return () => {
       cleanups.forEach((fn) => fn());
       horizontalTween.kill();
@@ -127,7 +153,7 @@ export function StoryBook() {
     };
   }, [totalSections]);
 
-  // Intro video: play/pause based on active scene
+  // Intro video: play/pause based on active panel
   useEffect(() => {
     const video = introVideoRef.current;
     const narration = introNarrationRef.current;
@@ -162,12 +188,13 @@ export function StoryBook() {
     };
   }, [activeIndex]);
 
-  // Scene narration
+  // Scene narration — keys 1-10 match storyScene IDs; activeIndex offset by EXTRA_PANELS
   useEffect(() => {
     const narration = sceneNarrationRef.current;
     if (!narration) return;
 
-    const src = narrationByScene[activeIndex];
+    const sceneId = activeIndex - EXTRA_PANELS;
+    const src = narrationByScene[sceneId];
 
     if (!src) {
       narration.pause();
@@ -185,6 +212,13 @@ export function StoryBook() {
     void narration.play().catch(() => undefined);
   }, [activeIndex]);
 
+  const narratorText = () => {
+    if (activeIndex === 0) return "Comienza la historia de Blancanieves.";
+    if (activeIndex === 1) return "Blancanieves saluda a su reino.";
+    if (activeIndex === 2) return "Un reino de cuento, lleno de magia y color.";
+    return storyScenes[activeIndex - 1 - EXTRA_PANELS]?.narration ?? "";
+  };
+
   return (
     <main>
       <audio ref={sceneNarrationRef} className="hidden" preload="metadata" />
@@ -200,17 +234,13 @@ export function StoryBook() {
       {/* Narrator panel */}
       <aside className="pointer-events-none fixed bottom-4 right-4 z-50 max-w-xs rounded-2xl bg-zinc-900/85 p-4 text-white shadow-lg backdrop-blur-sm md:bottom-8 md:right-8">
         <p className="text-xs uppercase tracking-[0.18em] text-amber-300">Narrador</p>
-        <p className="mt-2 text-sm leading-6">
-          {activeIndex === 0
-            ? "Comienza la historia de Blancanieves."
-            : storyScenes[activeIndex - 1]?.narration}
-        </p>
+        <p className="mt-2 text-sm leading-6">{narratorText()}</p>
         <p className="mt-3 text-xs text-zinc-300">
           Escena {activeIndex + 1} de {totalSections}
         </p>
       </aside>
 
-      {/* Arrow hints */}
+      {/* Scroll hint */}
       <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 text-white/60">
         <span className="text-xs tracking-widest uppercase">scroll</span>
         <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
@@ -218,7 +248,7 @@ export function StoryBook() {
         </svg>
       </div>
 
-      {/* Pin wrapper — GSAP pins this element */}
+      {/* Pin wrapper */}
       <div ref={pinWrapRef} className="overflow-hidden">
         {/* Horizontal track */}
         <div
@@ -226,7 +256,7 @@ export function StoryBook() {
           className="flex h-screen will-change-transform"
           style={{ width: `${totalSections * 100}vw` }}
         >
-          {/* Intro panel */}
+          {/* Panel 0: Intro video */}
           <section className="relative flex h-screen w-screen flex-shrink-0 items-center justify-center overflow-hidden">
             <video
               ref={introVideoRef}
@@ -246,7 +276,46 @@ export function StoryBook() {
             />
           </section>
 
-          {/* Story scenes */}
+          {/* Panel 1: Saludos Blancanieves video */}
+          <section className="relative flex h-screen w-screen flex-shrink-0 items-center justify-center overflow-hidden bg-amber-100">
+            <video
+              src="/saludoblancanieves.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+          </section>
+
+          {/* Panel 2: Panorama — blancanieves en su reino.jpg */}
+          <section
+            data-panorama-panel
+            className="relative flex h-screen w-screen flex-shrink-0 items-center justify-center overflow-hidden"
+          >
+            {/* Inner image wider than viewport to allow panning */}
+            <div
+              data-panorama-image
+              className="absolute inset-y-0 left-0 w-[160vw]"
+            >
+              <Image
+                src="/blancanieves%20en%20su%20reino.jpg"
+                alt="Blancanieves en su reino"
+                fill
+                priority
+                className="object-cover"
+              />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+            <div className="relative z-10 text-center text-white drop-shadow-lg">
+              <p className="text-xs uppercase tracking-[0.22em] text-amber-300">El reino</p>
+              <h2 className="mt-2 text-5xl font-black md:text-7xl">Blancanieves</h2>
+            </div>
+          </section>
+
+          {/* Panels 3-12: Story scenes */}
           {storyScenes.map((scene) => (
             <section
               key={scene.id}
@@ -256,50 +325,34 @@ export function StoryBook() {
                 `bg-gradient-to-br ${scene.gradient}`,
               )}
             >
-              {scene.id === 1 ? (
-                <div className="absolute inset-0">
-                  <video
-                    src="/saludoblancanieves.mp4"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="metadata"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <>
-                  <div className="absolute inset-0">
-                    <SceneBackgroundMedia sceneId={scene.id} image={scene.image} title={scene.title} />
-                  </div>
+              <div className="absolute inset-0">
+                <SceneBackgroundMedia sceneId={scene.id} image={scene.image} title={scene.title} />
+              </div>
 
-                  <Card
-                    data-scene-content
-                    className="relative z-10 w-full max-w-3xl border-white bg-white py-7 shadow-2xl"
-                  >
-                    <CardHeader className="gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
-                        Escena {scene.id}
-                      </p>
-                      <CardTitle className="text-3xl font-black leading-tight text-zinc-900 md:text-5xl">
-                        {scene.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="max-w-2xl text-base leading-7 text-zinc-700 md:text-xl md:leading-8">
-                        {scene.narration}
-                      </p>
-                      <div className="mt-5 rounded-2xl border border-rose-200/80 bg-rose-50/90 px-4 py-3">
-                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-rose-700">
-                          {scene.speaker}
-                        </p>
-                        <p className="mt-1 text-base text-zinc-800 md:text-lg">{scene.dialogue}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              )}
+              <Card
+                data-scene-content
+                className="relative z-10 w-full max-w-3xl border-white bg-white py-7 shadow-2xl"
+              >
+                <CardHeader className="gap-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
+                    Escena {scene.id}
+                  </p>
+                  <CardTitle className="text-3xl font-black leading-tight text-zinc-900 md:text-5xl">
+                    {scene.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="max-w-2xl text-base leading-7 text-zinc-700 md:text-xl md:leading-8">
+                    {scene.narration}
+                  </p>
+                  <div className="mt-5 rounded-2xl border border-rose-200/80 bg-rose-50/90 px-4 py-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-rose-700">
+                      {scene.speaker}
+                    </p>
+                    <p className="mt-1 text-base text-zinc-800 md:text-lg">{scene.dialogue}</p>
+                  </div>
+                </CardContent>
+              </Card>
             </section>
           ))}
         </div>
