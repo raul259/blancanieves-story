@@ -3,6 +3,9 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
+import { TextPlugin } from "gsap/TextPlugin";
+
+gsap.registerPlugin(TextPlugin);
 
 import { cn } from "@/lib/utils";
 import { storyScenes } from "./story-data";
@@ -126,19 +129,6 @@ const narrationBySceneId: Record<number, string> = {
 // SceneOverlay — texto animado en la parte inferior de cada escena
 // ---------------------------------------------------------------------------
 
-function WordSpans({ text }: { text: string }) {
-  return (
-    <>
-      {text.split(" ").map((word, i) => (
-        <span key={i} className="inline-block" data-word>
-          {word}
-          {i < text.split(" ").length - 1 ? "\u00A0" : ""}
-        </span>
-      ))}
-    </>
-  );
-}
-
 function SceneOverlay({ scene }: { scene: (typeof storyScenes)[number] }) {
   return (
     <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-8 pt-32 bg-linear-to-t from-black/90 via-black/55 to-transparent">
@@ -156,20 +146,25 @@ function SceneOverlay({ scene }: { scene: (typeof storyScenes)[number] }) {
         {scene.title}
       </h2>
 
+      {/* Narración: vacío — GSAP TextPlugin escribe el texto */}
       <p
-        className="mb-5 max-w-2xl text-sm leading-relaxed text-white/90 md:text-base"
         data-anim-narration
-      >
-        <WordSpans text={scene.narration} />
-      </p>
+        data-text={scene.narration}
+        className="mb-5 max-w-2xl text-sm leading-relaxed text-white/90 md:text-base"
+        suppressHydrationWarning
+      />
 
       <div data-anim-dialogue-border className="border-l-2 border-rose-400 pl-4">
         <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-rose-300">
           {scene.speaker}
         </p>
-        <p className="text-sm italic text-white/80 md:text-base" data-anim-dialogue>
-          <WordSpans text={scene.dialogue} />
-        </p>
+        {/* Diálogo: vacío — GSAP TextPlugin escribe el texto */}
+        <p
+          data-anim-dialogue
+          data-text={scene.dialogue}
+          className="text-sm italic text-white/80 md:text-base"
+          suppressHydrationWarning
+        />
       </div>
     </div>
   );
@@ -255,7 +250,7 @@ export function StoryBook() {
     return () => cleanups.forEach((fn) => fn());
   }, []);
 
-  // Animación word-by-word al entrar cada sección
+  // Typing animation al entrar cada sección (GSAP TextPlugin)
   useEffect(() => {
     const mainEl = mainRef.current;
     if (!mainEl) return;
@@ -267,44 +262,54 @@ export function StoryBook() {
 
       const label = section.querySelector<HTMLElement>("[data-anim-label]");
       const title = section.querySelector<HTMLElement>("[data-anim-title]");
-      const narrationWords = section.querySelectorAll<HTMLElement>("[data-anim-narration] [data-word]");
+      const narrationEl = section.querySelector<HTMLElement>("[data-anim-narration]");
       const dialogueBorder = section.querySelector<HTMLElement>("[data-anim-dialogue-border]");
-      const dialogueWords = section.querySelectorAll<HTMLElement>("[data-anim-dialogue] [data-word]");
+      const dialogueEl = section.querySelector<HTMLElement>("[data-anim-dialogue]");
 
       if (!title) return;
 
-      // Estado inicial invisible
+      // Estado inicial
       gsap.set([label, title], { autoAlpha: 0, y: 14 });
-      gsap.set(narrationWords, { autoAlpha: 0, y: 8 });
-      gsap.set([dialogueBorder, ...dialogueWords], { autoAlpha: 0 });
+      gsap.set([narrationEl, dialogueBorder, dialogueEl], { autoAlpha: 0 });
 
       const observer = new IntersectionObserver(
         ([entry]) => {
           if (entry.isIntersecting) {
-            const tl = gsap.timeline();
-            tl.to([label, title], {
+            const narrationText = narrationEl?.dataset.text ?? "";
+            const dialogueText = dialogueEl?.dataset.text ?? "";
+            // ~28ms por carácter para la narración, ~40ms para el diálogo
+            const narrationDuration = Math.max(narrationText.length * 0.028, 0.5);
+            const dialogueDuration = Math.max(dialogueText.length * 0.04, 0.3);
+
+            gsap
+              .timeline()
+              .to([label, title], {
                 autoAlpha: 1,
                 y: 0,
                 stagger: 0.12,
                 duration: 0.5,
                 ease: "power2.out",
               })
+              .to(narrationEl, { autoAlpha: 1, duration: 0.01 }, "+=0.15")
               .to(
-                narrationWords,
-                { autoAlpha: 1, y: 0, stagger: 0.03, duration: 0.2, ease: "power1.out" },
-                "+=0.05",
+                narrationEl,
+                { text: { value: narrationText, delimiter: "" }, duration: narrationDuration, ease: "none" },
+                "<",
               )
-              .to(dialogueBorder, { autoAlpha: 1, duration: 0.25 }, "+=0.15")
+              .to(dialogueBorder, { autoAlpha: 1, duration: 0.3 }, "+=0.25")
+              .to(dialogueEl, { autoAlpha: 1, duration: 0.01 }, "<")
               .to(
-                dialogueWords,
-                { autoAlpha: 1, stagger: 0.04, duration: 0.2, ease: "power1.out" },
-                "<0.05",
+                dialogueEl,
+                { text: { value: dialogueText, delimiter: "" }, duration: dialogueDuration, ease: "none" },
+                "<",
               );
           } else {
-            gsap.killTweensOf([label, title, narrationWords, dialogueBorder, dialogueWords]);
+            gsap.killTweensOf([label, title, narrationEl, dialogueBorder, dialogueEl]);
             gsap.set([label, title], { autoAlpha: 0, y: 14 });
-            gsap.set(narrationWords, { autoAlpha: 0, y: 8 });
-            gsap.set([dialogueBorder, ...dialogueWords], { autoAlpha: 0 });
+            gsap.set([narrationEl, dialogueBorder, dialogueEl], { autoAlpha: 0 });
+            // Limpiar texto para que vuelva a escribirse al re-entrar
+            if (narrationEl) narrationEl.textContent = "";
+            if (dialogueEl) dialogueEl.textContent = "";
           }
         },
         { root: mainEl, threshold: 0.5 },
