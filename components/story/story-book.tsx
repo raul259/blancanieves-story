@@ -4,7 +4,6 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { storyScenes } from "./story-data";
 
@@ -124,6 +123,59 @@ const narrationBySceneId: Record<number, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// SceneOverlay — texto animado en la parte inferior de cada escena
+// ---------------------------------------------------------------------------
+
+function WordSpans({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(" ").map((word, i) => (
+        <span key={i} className="inline-block" data-word>
+          {word}
+          {i < text.split(" ").length - 1 ? "\u00A0" : ""}
+        </span>
+      ))}
+    </>
+  );
+}
+
+function SceneOverlay({ scene }: { scene: (typeof storyScenes)[number] }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 z-10 px-6 pb-8 pt-32 bg-linear-to-t from-black/90 via-black/55 to-transparent">
+      <p
+        data-anim-label
+        className="mb-2 text-[10px] font-bold uppercase tracking-[0.22em] text-rose-400"
+      >
+        Escena {scene.id}
+      </p>
+
+      <h2
+        data-anim-title
+        className="mb-4 text-2xl font-black leading-tight text-white drop-shadow md:text-4xl"
+      >
+        {scene.title}
+      </h2>
+
+      <p
+        className="mb-5 max-w-2xl text-sm leading-relaxed text-white/90 md:text-base"
+        data-anim-narration
+      >
+        <WordSpans text={scene.narration} />
+      </p>
+
+      <div data-anim-dialogue-border className="border-l-2 border-rose-400 pl-4">
+        <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-rose-300">
+          {scene.speaker}
+        </p>
+        <p className="text-sm italic text-white/80 md:text-base" data-anim-dialogue>
+          <WordSpans text={scene.dialogue} />
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -203,7 +255,7 @@ export function StoryBook() {
     return () => cleanups.forEach((fn) => fn());
   }, []);
 
-  // Card fade-in animation when section enters view
+  // Animación word-by-word al entrar cada sección
   useEffect(() => {
     const mainEl = mainRef.current;
     if (!mainEl) return;
@@ -213,17 +265,46 @@ export function StoryBook() {
     sectionRefs.current.forEach((section, idx) => {
       if (!section || idx === 0) return;
 
-      const card = section.querySelector<HTMLElement>("[data-scene-content]");
-      if (!card) return;
+      const label = section.querySelector<HTMLElement>("[data-anim-label]");
+      const title = section.querySelector<HTMLElement>("[data-anim-title]");
+      const narrationWords = section.querySelectorAll<HTMLElement>("[data-anim-narration] [data-word]");
+      const dialogueBorder = section.querySelector<HTMLElement>("[data-anim-dialogue-border]");
+      const dialogueWords = section.querySelectorAll<HTMLElement>("[data-anim-dialogue] [data-word]");
 
-      gsap.set(card, { autoAlpha: 0, y: 28 });
+      if (!title) return;
+
+      // Estado inicial invisible
+      gsap.set([label, title], { autoAlpha: 0, y: 14 });
+      gsap.set(narrationWords, { autoAlpha: 0, y: 8 });
+      gsap.set([dialogueBorder, ...dialogueWords], { autoAlpha: 0 });
 
       const observer = new IntersectionObserver(
         ([entry]) => {
           if (entry.isIntersecting) {
-            gsap.to(card, { autoAlpha: 1, y: 0, duration: 0.8, ease: "power2.out" });
+            const tl = gsap.timeline();
+            tl.to([label, title], {
+                autoAlpha: 1,
+                y: 0,
+                stagger: 0.12,
+                duration: 0.5,
+                ease: "power2.out",
+              })
+              .to(
+                narrationWords,
+                { autoAlpha: 1, y: 0, stagger: 0.03, duration: 0.2, ease: "power1.out" },
+                "+=0.05",
+              )
+              .to(dialogueBorder, { autoAlpha: 1, duration: 0.25 }, "+=0.15")
+              .to(
+                dialogueWords,
+                { autoAlpha: 1, stagger: 0.04, duration: 0.2, ease: "power1.out" },
+                "<0.05",
+              );
           } else {
-            gsap.to(card, { autoAlpha: 0, y: 28, duration: 0.3 });
+            gsap.killTweensOf([label, title, narrationWords, dialogueBorder, dialogueWords]);
+            gsap.set([label, title], { autoAlpha: 0, y: 14 });
+            gsap.set(narrationWords, { autoAlpha: 0, y: 8 });
+            gsap.set([dialogueBorder, ...dialogueWords], { autoAlpha: 0 });
           }
         },
         { root: mainEl, threshold: 0.5 },
@@ -400,32 +481,7 @@ export function StoryBook() {
                 </div>
                 <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent" />
 
-                {scene && (
-                  <Card
-                    data-scene-content
-                    className="relative z-10 w-full max-w-3xl border-white bg-white py-7 shadow-2xl"
-                  >
-                    <CardHeader className="gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
-                        Escena {scene.id}
-                      </p>
-                      <CardTitle className="text-3xl font-black leading-tight text-zinc-900 md:text-5xl">
-                        {scene.title}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="max-w-2xl text-base leading-7 text-zinc-700 md:text-xl md:leading-8">
-                        {scene.narration}
-                      </p>
-                      <div className="mt-5 rounded-2xl border border-rose-200/80 bg-rose-50/90 px-4 py-3">
-                        <p className="text-xs font-bold uppercase tracking-[0.12em] text-rose-700">
-                          {scene.speaker}
-                        </p>
-                        <p className="mt-1 text-base text-zinc-800 md:text-lg">{scene.dialogue}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                {scene && <SceneOverlay scene={scene} />}
 
                 {/* Hint → scroll horizontal */}
                 <div className="absolute right-5 top-1/2 z-20 -translate-y-1/2 flex flex-col items-center gap-1 text-white/70">
@@ -466,32 +522,7 @@ export function StoryBook() {
             </div>
             <div className="absolute inset-0 bg-linear-to-t from-black/20 to-transparent" />
 
-            {scene && (
-              <Card
-                data-scene-content
-                className="relative z-10 w-full max-w-3xl border-white bg-white py-7 shadow-2xl"
-              >
-                <CardHeader className="gap-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
-                    Escena {scene.id}
-                  </p>
-                  <CardTitle className="text-3xl font-black leading-tight text-zinc-900 md:text-5xl">
-                    {scene.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="max-w-2xl text-base leading-7 text-zinc-700 md:text-xl md:leading-8">
-                    {scene.narration}
-                  </p>
-                  <div className="mt-5 rounded-2xl border border-rose-200/80 bg-rose-50/90 px-4 py-3">
-                    <p className="text-xs font-bold uppercase tracking-[0.12em] text-rose-700">
-                      {scene.speaker}
-                    </p>
-                    <p className="mt-1 text-base text-zinc-800 md:text-lg">{scene.dialogue}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {scene && <SceneOverlay scene={scene} />}
           </section>
         );
       })}
