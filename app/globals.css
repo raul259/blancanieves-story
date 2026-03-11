@@ -232,6 +232,14 @@ body {
   scrollbar-color: rgb(253 230 138 / 0.5) transparent;
 }
 
+/* Ocultar scrollbar en secciones con scroll horizontal */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .story-scroller::-webkit-scrollbar {
   width: 10px;
 }
