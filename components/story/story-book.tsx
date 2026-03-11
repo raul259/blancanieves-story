@@ -135,6 +135,49 @@ export function StoryBook() {
   const sceneNarrationRef = useRef<HTMLAudioElement | null>(null);
   const introAudioTimerRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndexRef = useRef(0); // ref para evitar stale closure en keydown
+
+  // Sync ref con estado
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
+
+  // Navegación por teclado
+  useEffect(() => {
+    const mainEl = mainRef.current;
+    if (!mainEl) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const idx = activeIndexRef.current;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (idx < TOTAL - 1) {
+          mainEl.scrollTo({ top: (idx + 1) * window.innerHeight, behavior: "smooth" });
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (idx > 0) {
+          mainEl.scrollTo({ top: (idx - 1) * window.innerHeight, behavior: "smooth" });
+        }
+      } else if (e.key === "ArrowRight") {
+        const section = sectionRefs.current[idx];
+        if (section && SECTIONS[idx]?.secondary) {
+          e.preventDefault();
+          section.scrollBy({ left: window.innerWidth, behavior: "smooth" });
+        }
+      } else if (e.key === "ArrowLeft") {
+        const section = sectionRefs.current[idx];
+        if (section && SECTIONS[idx]?.secondary) {
+          e.preventDefault();
+          section.scrollBy({ left: -window.innerWidth, behavior: "smooth" });
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []); // empty deps — usa refs, no estado
 
   // Track which section is vertically active
   useEffect(() => {
@@ -315,7 +358,7 @@ export function StoryBook() {
             <section
               key={section.key}
               ref={setSectionRef(idx)}
-              className="relative h-screen snap-start overflow-hidden"
+              className="relative h-screen snap-start snap-always overflow-hidden"
             >
               <video
                 ref={introVideoRef}
@@ -343,12 +386,12 @@ export function StoryBook() {
             <section
               key={section.key}
               ref={setSectionRef(idx)}
-              className="no-scrollbar h-screen snap-start flex overflow-x-scroll snap-x snap-mandatory"
+              className="no-scrollbar h-screen snap-start snap-always flex overflow-x-scroll snap-x snap-mandatory"
             >
               {/* Panel primario: fondo + card */}
               <div
                 className={cn(
-                  "relative flex h-full w-screen shrink-0 snap-start items-center justify-center overflow-hidden px-4 py-8 md:px-8",
+                  "relative flex h-full w-screen shrink-0 snap-start snap-always items-center justify-center overflow-hidden px-4 py-8 md:px-8",
                   scene ? `bg-linear-to-br ${scene.gradient}` : "bg-zinc-900",
                 )}
               >
@@ -400,7 +443,7 @@ export function StoryBook() {
               </div>
 
               {/* Panel secundario: solo imagen/video */}
-              <div className="relative h-full w-screen shrink-0 snap-start overflow-hidden bg-zinc-900">
+              <div className="relative h-full w-screen shrink-0 snap-start snap-always overflow-hidden bg-zinc-900">
                 <MediaBackground media={section.secondary!} priority={false} />
                 <div className="absolute inset-0 bg-linear-to-t from-black/30 to-transparent" />
               </div>
@@ -414,7 +457,7 @@ export function StoryBook() {
             key={section.key}
             ref={setSectionRef(idx)}
             className={cn(
-              "relative flex h-screen snap-start items-center justify-center overflow-hidden px-4 py-8 md:px-8",
+              "relative flex h-screen snap-start snap-always items-center justify-center overflow-hidden px-4 py-8 md:px-8",
               scene ? `bg-linear-to-br ${scene.gradient}` : "bg-zinc-900",
             )}
           >
