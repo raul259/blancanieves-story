@@ -273,6 +273,7 @@ export function StoryBook() {
   const s10SecVideoRef = useRef<HTMLVideoElement | null>(null);
   const [s4AudioPlayed, setS4AudioPlayed] = useState(false);
   const [s9SecAudioPlayed, setS9SecAudioPlayed] = useState(false);
+  const [s9SecActive, setS9SecActive] = useState(false);
   const [s7AudioPlayed, setS7AudioPlayed] = useState(false);
   const [s8SecAudioPlayed, setS8SecAudioPlayed] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -335,7 +336,9 @@ export function StoryBook() {
     const s9Idx = SECTIONS.findIndex((s) => s.key === "s9");
     if (activeIndex !== s9Idx) {
       setS9SecAudioPlayed(false);
+      setS9SecActive(false);
       if (besoAudioRef.current) besoAudioRef.current.pause();
+      if (hastaPrincipeAudioRef.current) hastaPrincipeAudioRef.current.pause();
     }
     const s10Idx = SECTIONS.findIndex((s) => s.key === "s10");
     if (activeIndex !== s10Idx) {
@@ -382,6 +385,7 @@ export function StoryBook() {
           }
           // S9: parar narración de escena y reproducir la del beso
           if (SECTIONS[idx]?.key === "s9") {
+            setS9SecActive(true);
             if (sceneNarrationRef.current) sceneNarrationRef.current.pause();
             if (soundEnabledRef.current && hastaPrincipeAudioRef.current) {
               hastaPrincipeAudioRef.current.currentTime = 0;
@@ -425,6 +429,7 @@ export function StoryBook() {
           }
           // S9: pausar narración del beso y reanudar la de escena
           if (SECTIONS[idx]?.key === "s9") {
+            setS9SecActive(false);
             if (hastaPrincipeAudioRef.current) hastaPrincipeAudioRef.current.pause();
             if (soundEnabledRef.current && sceneNarrationRef.current) {
               sceneNarrationRef.current.currentTime = 0;
@@ -743,7 +748,7 @@ export function StoryBook() {
                       Blancanieves
                     </h1>
                     <p className="mt-2 text-lg text-white/70 tracking-widest uppercase" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.8)" }}>
-                      Un cuento de hadas
+                      Un cuento infantil interactivo para todas las edades
                     </p>
                   </div>
                   <button
@@ -1033,7 +1038,12 @@ export function StoryBook() {
                         Un dulce beso
                       </h2>
                       <p className="mb-5 max-w-2xl text-sm leading-relaxed text-white/90 md:text-base">
-                        "Hasta que llegó un valeroso príncipe, dispuesto a romper ese hechizo... despertándola con un beso..."
+                        <TypingText
+                          text='"Hasta que llegó un valeroso príncipe, dispuesto a romper ese hechizo... despertándola con un beso..."'
+                          isActive={s9SecActive}
+                          charDelay={28}
+                          startDelay={600}
+                        />
                       </p>
                     </div>
 
