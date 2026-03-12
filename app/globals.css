@@ -190,6 +190,36 @@ body {
   }
 }
 
+@keyframes bubble-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+.bubble-float {
+  animation: bubble-float 3s ease-in-out infinite;
+}
+
+.bubble-float-delay {
+  animation: bubble-float 3.4s ease-in-out infinite;
+  animation-delay: 0.8s;
+}
+
+.bubble-float-delay2 {
+  animation: bubble-float 3.8s ease-in-out infinite;
+  animation-delay: 1.5s;
+}
+
+@keyframes chars-invite {
+  0%, 100% { transform: scale(1) translateY(0px); }
+  30%       { transform: scale(1.06) translateY(-12px); }
+  60%       { transform: scale(1.04) translateY(-6px); }
+}
+
+.chars-invite {
+  animation: chars-invite 2.4s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
 @keyframes windFlow {
   0% {
     transform: translateX(0) scaleX(0.5);
