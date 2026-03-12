@@ -1,8 +1,5 @@
 @import "tailwindcss";
 
-* {
-  cursor: url("https://cdn.cursors-4u.net/css-previews/red-apple-being-eaten-1b24c7af-css.webp") 0 0, auto !important;
-}
 
 :root {
   --background: #ffffff;

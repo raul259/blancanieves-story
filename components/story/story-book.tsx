@@ -214,10 +214,6 @@ function SceneOverlay({
 }) {
   const titleRef = useRef<HTMLHeadingElement | null>(null);
 
-  // Para saber cuándo terminó la narración usamos un contador propio
-  const narrationCount = useTypingCount(scene.narration, isActive, 28, 700);
-  const narrationDone = narrationCount >= scene.narration.length;
-
   // GSAP para el slide-fade del título
   useEffect(() => {
     const title = titleRef.current;
@@ -248,16 +244,6 @@ function SceneOverlay({
         <TypingText text={scene.narration} isActive={isActive} charDelay={28} startDelay={700} />
       </p>
 
-      {narrationDone && (
-        <div className="border-l-2 border-rose-400 pl-4">
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-rose-300">
-            {scene.speaker}
-          </p>
-          <p className="text-sm italic text-white/80 md:text-base">
-            <TypingText text={scene.dialogue} isActive={isActive && narrationDone} charDelay={40} startDelay={400} />
-          </p>
-        </div>
-      )}
     </div>
   );
 }
@@ -283,6 +269,7 @@ export function StoryBook() {
   const manzanaAudioRef = useRef<HTMLAudioElement | null>(null);
   const noPerdAudioRef = useRef<HTMLAudioElement | null>(null);
   const besoAudioRef = useRef<HTMLAudioElement | null>(null);
+  const hastaPrincipeAudioRef = useRef<HTMLAudioElement | null>(null);
   const s10SecVideoRef = useRef<HTMLVideoElement | null>(null);
   const [s4AudioPlayed, setS4AudioPlayed] = useState(false);
   const [s9SecAudioPlayed, setS9SecAudioPlayed] = useState(false);
@@ -293,6 +280,7 @@ export function StoryBook() {
 
   const [soundEnabled, setSoundEnabled] = useState(true);
   const soundEnabledRef = useRef(true);
+  const [storyStarted, setStoryStarted] = useState(false);
   const [s2SecAudioOn, setS2SecAudioOn] = useState(false);
   const [s1BubblesVisible, setS1BubblesVisible] = useState(false);
   const [s3BubbleVisible, setS3BubbleVisible] = useState(false);
@@ -392,6 +380,14 @@ export function StoryBook() {
           if (SECTIONS[idx]?.key === "s5" && soundEnabledRef.current) {
             if (correAudioRef.current) void correAudioRef.current.play().catch(() => undefined);
           }
+          // S9: parar narración de escena y reproducir la del beso
+          if (SECTIONS[idx]?.key === "s9") {
+            if (sceneNarrationRef.current) sceneNarrationRef.current.pause();
+            if (soundEnabledRef.current && hastaPrincipeAudioRef.current) {
+              hastaPrincipeAudioRef.current.currentTime = 0;
+              void hastaPrincipeAudioRef.current.play().catch(() => undefined);
+            }
+          }
           // S10: activar audio del video despedida al entrar al panel secundario
           if (SECTIONS[idx]?.key === "s10" && soundEnabledRef.current) {
             if (s10SecVideoRef.current) {
@@ -426,6 +422,14 @@ export function StoryBook() {
           // S5: pausar corre blancanieves al salir del panel secundario
           if (SECTIONS[idx]?.key === "s5") {
             if (correAudioRef.current) correAudioRef.current.pause();
+          }
+          // S9: pausar narración del beso y reanudar la de escena
+          if (SECTIONS[idx]?.key === "s9") {
+            if (hastaPrincipeAudioRef.current) hastaPrincipeAudioRef.current.pause();
+            if (soundEnabledRef.current && sceneNarrationRef.current) {
+              sceneNarrationRef.current.currentTime = 0;
+              void sceneNarrationRef.current.play().catch(() => undefined);
+            }
           }
           // S10: silenciar video despedida al volver al panel primario
           if (SECTIONS[idx]?.key === "s10") {
@@ -515,18 +519,16 @@ export function StoryBook() {
 
     if (activeIndex === 0) {
       if (video.ended) video.currentTime = 0;
-      void video.play().catch(() => undefined);
+      video.muted = true; // siempre muted para evitar que el navegador pause el vídeo
+      if (video.paused) void video.play().catch(() => undefined);
 
-      if (soundEnabled) {
+      if (storyStarted && soundEnabled) {
         if (introAudioTimerRef.current) window.clearTimeout(introAudioTimerRef.current);
         introAudioTimerRef.current = window.setTimeout(() => {
-          video.muted = false;
-          video.volume = 1;
           narration.currentTime = 0;
           void narration.play().catch(() => undefined);
-        }, 3000);
+        }, 500);
       } else {
-        video.muted = true;
         narration.pause();
       }
     } else {
@@ -545,7 +547,7 @@ export function StoryBook() {
         introAudioTimerRef.current = null;
       }
     };
-  }, [activeIndex, soundEnabled]);
+  }, [activeIndex, soundEnabled, storyStarted]);
 
   // S2 video audio (directo, sin pasar por props de React)
   useEffect(() => {
@@ -587,13 +589,13 @@ export function StoryBook() {
   useEffect(() => {
     const bg = bgMusicRef.current;
     if (!bg) return;
-    if (soundEnabled) {
+    if (soundEnabled && storyStarted) {
       bg.volume = 0.25;
       void bg.play().catch(() => undefined);
     } else {
       bg.pause();
     }
-  }, [soundEnabled]);
+  }, [soundEnabled, storyStarted]);
 
   // Scene narration audio
   useEffect(() => {
@@ -658,6 +660,7 @@ export function StoryBook() {
       <audio ref={manzanaAudioRef} src="/blancanieves muerde la manzana.mp3" preload="metadata" className="hidden" onEnded={() => setS8SecAudioPlayed(false)} />
       <audio ref={noPerdAudioRef} src="/no perderemos.mp3" preload="metadata" className="hidden" />
       <audio ref={besoAudioRef} src="/beso del principe.mp3" preload="metadata" className="hidden" onEnded={() => setS9SecAudioPlayed(false)} />
+      <audio ref={hastaPrincipeAudioRef} src="/hasta%20que%20lleg%C3%B3%20el%20principe.mp3" preload="metadata" className="hidden" />
 
       {/* Progress bar — fixed */}
       <div className="pointer-events-none fixed left-0 right-0 top-0 z-50 h-1 bg-white/25">
@@ -731,6 +734,32 @@ export function StoryBook() {
                 className="hidden"
                 src="/Narrador/bievenidos%20al%20reino.mp3"
               />
+
+              {/* Pantalla de inicio — desaparece al pulsar el botón */}
+              {!storyStarted && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-8 bg-black/30 backdrop-blur-[2px]">
+                  <div className="text-center">
+                    <h1 className="text-5xl font-black text-white drop-shadow-lg md:text-7xl" style={{ fontFamily: "Georgia, serif", textShadow: "0 2px 24px rgba(0,0,0,0.8)" }}>
+                      Blancanieves
+                    </h1>
+                    <p className="mt-2 text-lg text-white/70 tracking-widest uppercase" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.8)" }}>
+                      Un cuento de hadas
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setStoryStarted(true)}
+                    className="group relative overflow-hidden rounded-full border-2 border-white/60 bg-white/10 px-10 py-4 text-lg font-bold text-white backdrop-blur-sm transition-all duration-300 hover:bg-white/25 hover:border-white hover:scale-105 active:scale-95"
+                    style={{ textShadow: "0 1px 8px rgba(0,0,0,0.6)", boxShadow: "0 4px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2)" }}
+                  >
+                    <span className="relative z-10 flex items-center gap-3">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                      </svg>
+                      Comenzar cuento
+                    </span>
+                  </button>
+                </div>
+              )}
             </section>
           );
         }
@@ -796,7 +825,7 @@ export function StoryBook() {
                 {section.key === "s10" && (
                   <>
                     <div
-                      className="absolute inset-0 z-[5] cursor-pointer chars-invite"
+                      className="absolute inset-0 z-5 cursor-pointer chars-invite"
                       onClick={() => {
                         const el = sectionRefs.current[idx];
                         if (!el) return;
@@ -843,7 +872,7 @@ export function StoryBook() {
 
                 {/* Bocadillo Blancanieves — escena 4 */}
                 {section.key === "s4" && (
-                  <div className="absolute bottom-180 left-220 z-20 max-w-48 pointer-events-none bubble-float">
+                  <div className="absolute bottom-[30%] left-[50%] z-20 max-w-44 pointer-events-none bubble-float lg:bottom-180 lg:left-220 lg:max-w-48">
                     <div className="relative rounded-2xl rounded-bl-sm bg-sky-50/70 px-5 py-4 shadow-2xl border-2 border-sky-200/70 backdrop-blur-sm">
                       <span className="block text-[10px] font-bold uppercase tracking-wide text-sky-600 mb-1"></span>
                       <p className="text-2xl font-black text-gray-900 leading-tight">¡NOOOOOO!!!!</p>
@@ -856,7 +885,7 @@ export function StoryBook() {
                 {section.key === "s8" && (
                   <div className="absolute inset-0 z-20 pointer-events-none">
                     {/* Vendedora */}
-                    <div className="absolute top-12 right-100 max-w-80 bubble-float">
+                    <div className="absolute top-12 right-[5%] max-w-64 bubble-float lg:right-100 lg:max-w-80">
                       <div className="relative rounded-2xl rounded-tr-sm bg-rose-950/85 px-6 py-5 shadow-2xl border border-rose-800/50 backdrop-blur-sm">
                         <span className="block text-xs font-bold uppercase tracking-wide text-rose-300 mb-2">La Vendedora</span>
                         <p className="text-base text-rose-50 leading-snug italic">"Toma esta manzana. Es un regalo para ti."</p>
@@ -865,7 +894,7 @@ export function StoryBook() {
                     </div>
 
                     {/* Blancanieves */}
-                    <div className="absolute bottom-200 left-190 max-w-72 bubble-float-delay">
+                    <div className="absolute bottom-[30%] left-[45%] max-w-56 bubble-float-delay lg:bottom-200 lg:left-190 lg:max-w-72">
                       <div className="relative rounded-2xl rounded-bl-sm bg-sky-50/85 px-6 py-5 shadow-2xl border border-sky-200/60 backdrop-blur-sm">
                         <span className="block text-xs font-bold uppercase tracking-wide text-sky-600 mb-2">Blancanieves</span>
                         <p className="text-base text-gray-800 leading-snug italic">"¡Ooohh! Gracias."</p>
@@ -927,7 +956,7 @@ export function StoryBook() {
                       s1BubblesVisible ? "opacity-100" : "opacity-0",
                     )}>
                       {/* El Rey */}
-                      <div className="absolute top-10 left-96 max-w-50 bubble-float">
+                      <div className="absolute top-[4%] left-[20%] max-w-44 bubble-float lg:top-10 lg:left-96 lg:max-w-50">
                         <div className="relative rounded-2xl rounded-bl-sm bg-amber-50/95 px-4 py-3 shadow-xl">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-amber-700 mb-1">El Rey</span>
                           <p className="text-sm text-gray-800 leading-snug italic">"Hija mía, todo esto te pertenece."</p>
@@ -936,7 +965,7 @@ export function StoryBook() {
                       </div>
 
                       {/* Blancanieves */}
-                      <div className="absolute bottom-176 left-75 -translate-x-1/2 max-w-45 bubble-float-delay">
+                      <div className="absolute bottom-[18%] left-[12%] -translate-x-1/2 max-w-40 bubble-float-delay lg:bottom-176 lg:left-75 lg:max-w-45">
                         <div className="relative rounded-2xl rounded-br-sm bg-sky-50/95 px-4 py-3 shadow-xl text-center">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-sky-600 mb-1">Blancanieves</span>
                           <p className="text-sm text-gray-800 leading-snug italic">"Oh papá, te amo."</p>
@@ -945,7 +974,7 @@ export function StoryBook() {
                       </div>
 
                       {/* La Reina */}
-                      <div className="absolute top-25 right-85 max-w-55 bubble-float-delay2">
+                      <div className="absolute top-[8%] right-[5%] max-w-44 bubble-float-delay2 lg:top-25 lg:right-85 lg:max-w-55">
                         <div className="relative rounded-2xl rounded-br-sm bg-purple-950/90 px-4 py-3 shadow-xl border border-purple-700/40">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-purple-300 mb-1">La Reina</span>
                           <p className="text-sm text-purple-100 leading-snug italic">"¡Jum! Tarde que temprano esto será mío y de nadie más…"</p>
@@ -959,7 +988,7 @@ export function StoryBook() {
                 {section.key === "s5" && (
                   <div className="absolute inset-0 z-20 pointer-events-none">
                     {/* Cazador */}
-                    <div className="absolute top-8 left-145 max-w-64 bubble-float">
+                    <div className="absolute top-8 left-[30%] max-w-52 bubble-float lg:left-145 lg:max-w-64">
                       <div className="relative rounded-2xl rounded-tl-sm bg-amber-900/85 px-4 py-3 shadow-2xl border border-amber-700/50 backdrop-blur-sm">
                         <span className="block text-[10px] font-bold uppercase tracking-wide text-amber-300 mb-1">El Cazador</span>
                         <p className="text-sm text-amber-50 leading-snug italic">"Corre Blancanieves, huye hacia lo profundo del bosque, escóndete muy bien, no dejen que te encuentren."</p>
@@ -968,7 +997,7 @@ export function StoryBook() {
                     </div>
 
                     {/* Blancanieves */}
-                    <div className="absolute bottom-180 right-150 max-w-72 bubble-float-delay">
+                    <div className="absolute bottom-[30%] right-[5%] max-w-56 bubble-float-delay lg:bottom-180 lg:right-150 lg:max-w-72">
                       <div className="relative rounded-2xl rounded-br-sm bg-sky-50/85 px-6 py-5 shadow-2xl border border-sky-200/60 backdrop-blur-sm text-right">
                         <span className="block text-xs font-bold uppercase tracking-wide text-sky-600 mb-2">Blancanieves</span>
                         <p className="text-base text-gray-800 leading-snug italic">"¡Lo haré! Gracias...!"</p>
@@ -998,8 +1027,18 @@ export function StoryBook() {
                       />
                     </div>
 
+                    {/* Card del narrador — estilo SceneOverlay */}
+                    <div className="absolute inset-x-0 bottom-0 z-20 pointer-events-none px-6 pb-8 pt-32 bg-linear-to-t from-black/90 via-black/55 to-transparent">
+                      <h2 className="mb-4 text-2xl font-black leading-tight text-white drop-shadow md:text-4xl">
+                        Un dulce beso
+                      </h2>
+                      <p className="mb-5 max-w-2xl text-sm leading-relaxed text-white/90 md:text-base">
+                        "Hasta que llegó un valeroso príncipe, dispuesto a romper ese hechizo... despertándola con un beso..."
+                      </p>
+                    </div>
+
                     <div className={cn(
-                      "absolute bottom-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none flex items-center gap-2 rounded-full bg-rose-400/80 px-5 py-2.5 text-sm font-bold text-white shadow-lg backdrop-blur-sm transition-opacity duration-500 animate-bounce",
+                      "absolute bottom-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex items-center gap-2 rounded-full bg-rose-400/80 px-5 py-2.5 text-sm font-bold text-white shadow-lg backdrop-blur-sm transition-opacity duration-500 animate-bounce",
                       s9SecAudioPlayed ? "opacity-0" : "opacity-100",
                     )}>
                       👆 ¡Toca la escena!
@@ -1039,6 +1078,7 @@ export function StoryBook() {
                 {section.key === "s10" && (
                   <button
                     onClick={() => {
+                      setStoryStarted(false);
                       mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                     className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-amber-400/90 px-7 py-3 text-sm font-bold text-amber-950 shadow-xl backdrop-blur-sm transition hover:bg-amber-300 active:scale-95"
@@ -1117,7 +1157,7 @@ export function StoryBook() {
             {section.key === "s7" && (
               <>
                 <div
-                  className={cn("absolute inset-0 z-[5] cursor-pointer", !s7AudioPlayed && "chars-invite")}
+                  className={cn("absolute inset-0 z-5 cursor-pointer", !s7AudioPlayed && "chars-invite")}
                   onClick={() => {
                     const audio = quienEsAudioRef.current;
                     if (!audio) return;

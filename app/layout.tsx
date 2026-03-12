@@ -25,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link
           rel="stylesheet"
           href="https://cdn.cursors-4u.net/cursors/animated/red-apple-being-eaten-7019d310-32.css"
