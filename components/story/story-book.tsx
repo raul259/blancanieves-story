@@ -1048,7 +1048,7 @@ export function StoryBook() {
                       </div>
 
                       {/* Blancanieves */}
-                      <div className="absolute top-[42%] left-[5%] w-[min(10rem,16vw)] bubble-float-delay">
+                      <div className="absolute top-[20%] left-[11%] w-[min(10rem,16vw)] bubble-float-delay">
                         <div className="relative rounded-2xl rounded-br-sm bg-sky-50/95 px-3 py-2 sm:px-4 sm:py-3 shadow-xl text-center">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-sky-600 mb-1">Blancanieves</span>
                           <p className="text-xs sm:text-sm text-gray-800 leading-snug italic">"Oh papá, te amo."</p>
