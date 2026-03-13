@@ -254,7 +254,6 @@ body {
 }
 
 .story-scroller {
-  scroll-snap-type: y mandatory;
   scrollbar-width: thin;
   scrollbar-color: rgb(253 230 138 / 0.5) transparent;
 }

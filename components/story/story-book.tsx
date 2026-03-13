@@ -346,108 +346,171 @@ export function StoryBook() {
     }
   }, [activeIndex]);
 
+  // Animación suave con easeOut — sin fase de aceleración
+  function animateScroll(
+    el: HTMLElement,
+    axis: "left" | "top",
+    target: number,
+    duration = 850,
+  ) {
+    const prop = axis === "left" ? "scrollLeft" : "scrollTop";
+    const start = el[prop];
+    const diff = target - start;
+    const startTime = performance.now();
+    function step(now: number) {
+      const t = Math.min((now - startTime) / duration, 1);
+      const ease = 1 - (1 - t) ** 4;
+      el[prop] = start + diff * ease;
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  const smoothScrollTo = (el: HTMLElement, targetLeft: number) =>
+    animateScroll(el, "left", targetLeft);
+  const smoothScrollTopTo = (el: HTMLElement, targetTop: number) =>
+    animateScroll(el, "top", targetTop);
+
   // Wheel → scroll horizontal cuando la sección tiene secundario
   useEffect(() => {
     const mainEl = mainRef.current;
     if (!mainEl) return;
 
     let scrolling = false;
+    let accumulated = 0;
+    let resetTimer: ReturnType<typeof setTimeout> | null = null;
+    // Touchpad acumula ~5-10px por evento; ratón dispara 100-120px de una vez
+    const THRESHOLD = 80;
+
+    const doForward = (idx: number, section: HTMLElement) => {
+      scrolling = true;
+      accumulated = 0;
+      panelIndexRef.current[idx] = 1;
+      smoothScrollTo(section, window.innerWidth);
+      if (SECTIONS[idx]?.key === "s2" && soundEnabledRef.current) {
+        if (s2VideoRef.current) s2VideoRef.current.muted = true;
+        if (s2SecVideoRef.current) {
+          s2SecVideoRef.current.muted = false;
+          void s2SecVideoRef.current.play().catch(() => undefined);
+        }
+      }
+      if (SECTIONS[idx]?.key === "s4" && soundEnabledRef.current) {
+        if (horseAudioRef.current) void horseAudioRef.current.play().catch(() => undefined);
+      }
+      if (SECTIONS[idx]?.key === "s5" && soundEnabledRef.current) {
+        if (correAudioRef.current) void correAudioRef.current.play().catch(() => undefined);
+      }
+      if (SECTIONS[idx]?.key === "s9") {
+        setS9SecActive(true);
+        if (sceneNarrationRef.current) sceneNarrationRef.current.pause();
+        if (soundEnabledRef.current && hastaPrincipeAudioRef.current) {
+          hastaPrincipeAudioRef.current.currentTime = 0;
+          void hastaPrincipeAudioRef.current.play().catch(() => undefined);
+        }
+      }
+      if (SECTIONS[idx]?.key === "s10" && soundEnabledRef.current) {
+        if (s10SecVideoRef.current) {
+          s10SecVideoRef.current.muted = false;
+          void s10SecVideoRef.current.play().catch(() => undefined);
+        }
+      }
+      setTimeout(() => { scrolling = false; }, 900);
+    };
+
+    const doBackward = (idx: number, section: HTMLElement) => {
+      scrolling = true;
+      accumulated = 0;
+      panelIndexRef.current[idx] = 0;
+      smoothScrollTo(section, 0);
+      if (SECTIONS[idx]?.key === "s2" && soundEnabledRef.current) {
+        if (s2SecVideoRef.current) s2SecVideoRef.current.muted = true;
+        if (s2VideoRef.current) {
+          s2VideoRef.current.muted = false;
+          void s2VideoRef.current.play().catch(() => undefined);
+        }
+      }
+      if (SECTIONS[idx]?.key === "s4") {
+        if (horseAudioRef.current) horseAudioRef.current.pause();
+      }
+      if (SECTIONS[idx]?.key === "s5") {
+        if (correAudioRef.current) correAudioRef.current.pause();
+      }
+      if (SECTIONS[idx]?.key === "s9") {
+        setS9SecActive(false);
+        if (hastaPrincipeAudioRef.current) hastaPrincipeAudioRef.current.pause();
+        if (soundEnabledRef.current && sceneNarrationRef.current) {
+          sceneNarrationRef.current.currentTime = 0;
+          void sceneNarrationRef.current.play().catch(() => undefined);
+        }
+      }
+      if (SECTIONS[idx]?.key === "s10") {
+        if (s10SecVideoRef.current) s10SecVideoRef.current.muted = true;
+      }
+      setTimeout(() => { scrolling = false; }, 900);
+    };
+
+    const doVertical = (newIdx: number) => {
+      scrolling = true;
+      accumulated = 0;
+      setActiveIndex(newIdx);
+      smoothScrollTopTo(mainEl, newIdx * window.innerHeight);
+      setTimeout(() => { scrolling = false; }, 900);
+    };
 
     const handleWheel = (e: WheelEvent) => {
+      // Siempre prevenimos el scroll nativo — lo controlamos todo por JS
+      e.preventDefault();
+
+      if (scrolling) return;
+
       const idx = activeIndexRef.current;
       const section = sectionRefs.current[idx];
-      if (!section || !SECTIONS[idx]?.secondary) return;
-
       const panel = panelIndexRef.current[idx] ?? 0;
+      const hasSecondary = !!SECTIONS[idx]?.secondary;
 
-      // Panel primario + rueda abajo → ir al secundario
-      if (e.deltaY > 0 && panel === 0) {
-        e.preventDefault();
-        if (!scrolling) {
-          scrolling = true;
-          panelIndexRef.current[idx] = 1;
-          section.scrollTo({ left: window.innerWidth, behavior: "smooth" });
-          // S2: cambiar audio al video secundario
-          if (SECTIONS[idx]?.key === "s2" && soundEnabledRef.current) {
-            if (s2VideoRef.current) s2VideoRef.current.muted = true;
-            if (s2SecVideoRef.current) {
-              s2SecVideoRef.current.muted = false;
-              void s2SecVideoRef.current.play().catch(() => undefined);
-            }
-          }
-          // S4: iniciar caballo al entrar al panel secundario
-          if (SECTIONS[idx]?.key === "s4" && soundEnabledRef.current) {
-            if (horseAudioRef.current) void horseAudioRef.current.play().catch(() => undefined);
-          }
-          // S5: iniciar corre blancanieves al entrar al panel secundario
-          if (SECTIONS[idx]?.key === "s5" && soundEnabledRef.current) {
-            if (correAudioRef.current) void correAudioRef.current.play().catch(() => undefined);
-          }
-          // S9: parar narración de escena y reproducir la del beso
-          if (SECTIONS[idx]?.key === "s9") {
-            setS9SecActive(true);
-            if (sceneNarrationRef.current) sceneNarrationRef.current.pause();
-            if (soundEnabledRef.current && hastaPrincipeAudioRef.current) {
-              hastaPrincipeAudioRef.current.currentTime = 0;
-              void hastaPrincipeAudioRef.current.play().catch(() => undefined);
-            }
-          }
-          // S10: activar audio del video despedida al entrar al panel secundario
-          if (SECTIONS[idx]?.key === "s10" && soundEnabledRef.current) {
-            if (s10SecVideoRef.current) {
-              s10SecVideoRef.current.muted = false;
-              void s10SecVideoRef.current.play().catch(() => undefined);
-            }
-          }
-          setTimeout(() => { scrolling = false; }, 700);
+      // Ratón: deltaMode=1 (líneas) o deltaY ≥ 50px → disparar inmediato
+      // Touchpad: valores pequeños → acumular hasta THRESHOLD
+      const isMouseWheel = e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50;
+
+      // ── Horizontal: panel primario → secundario ──
+      if (hasSecondary && section && e.deltaY > 0 && panel === 0) {
+        if (isMouseWheel) {
+          doForward(idx, section);
+        } else {
+          accumulated += e.deltaY;
+          if (resetTimer) clearTimeout(resetTimer);
+          resetTimer = setTimeout(() => { accumulated = 0; }, 250);
+          if (accumulated >= THRESHOLD) doForward(idx, section);
         }
         return;
       }
 
-      // Panel secundario + rueda arriba → volver al primario
-      if (e.deltaY < 0 && panel === 1) {
-        e.preventDefault();
-        if (!scrolling) {
-          scrolling = true;
-          panelIndexRef.current[idx] = 0;
-          section.scrollTo({ left: 0, behavior: "smooth" });
-          // S2: cambiar audio al video primario
-          if (SECTIONS[idx]?.key === "s2" && soundEnabledRef.current) {
-            if (s2SecVideoRef.current) s2SecVideoRef.current.muted = true;
-            if (s2VideoRef.current) {
-              s2VideoRef.current.muted = false;
-              void s2VideoRef.current.play().catch(() => undefined);
-            }
-          }
-          // S4: pausar caballo al salir del panel secundario
-          if (SECTIONS[idx]?.key === "s4") {
-            if (horseAudioRef.current) horseAudioRef.current.pause();
-          }
-          // S5: pausar corre blancanieves al salir del panel secundario
-          if (SECTIONS[idx]?.key === "s5") {
-            if (correAudioRef.current) correAudioRef.current.pause();
-          }
-          // S9: pausar narración del beso y reanudar la de escena
-          if (SECTIONS[idx]?.key === "s9") {
-            setS9SecActive(false);
-            if (hastaPrincipeAudioRef.current) hastaPrincipeAudioRef.current.pause();
-            if (soundEnabledRef.current && sceneNarrationRef.current) {
-              sceneNarrationRef.current.currentTime = 0;
-              void sceneNarrationRef.current.play().catch(() => undefined);
-            }
-          }
-          // S10: silenciar video despedida al volver al panel primario
-          if (SECTIONS[idx]?.key === "s10") {
-            if (s10SecVideoRef.current) s10SecVideoRef.current.muted = true;
-          }
-          setTimeout(() => { scrolling = false; }, 700);
+      // ── Horizontal: panel secundario → primario ──
+      if (hasSecondary && section && e.deltaY < 0 && panel === 1) {
+        if (isMouseWheel) {
+          doBackward(idx, section);
+        } else {
+          accumulated += Math.abs(e.deltaY);
+          if (resetTimer) clearTimeout(resetTimer);
+          resetTimer = setTimeout(() => { accumulated = 0; }, 250);
+          if (accumulated >= THRESHOLD) doBackward(idx, section);
         }
         return;
       }
 
-      // Panel secundario + rueda abajo → siguiente sección vertical
-      // Panel primario + rueda arriba → sección anterior vertical
-      // → no preventDefault, el mainEl scrollea normalmente
+      // ── Vertical: cambio de escena ──
+      const newIdx = e.deltaY > 0
+        ? Math.min(idx + 1, SECTIONS.length - 1)
+        : Math.max(idx - 1, 0);
+      if (newIdx === idx) return;
+
+      if (isMouseWheel) {
+        doVertical(newIdx);
+      } else {
+        accumulated += Math.abs(e.deltaY);
+        if (resetTimer) clearTimeout(resetTimer);
+        resetTimer = setTimeout(() => { accumulated = 0; }, 250);
+        if (accumulated >= THRESHOLD) doVertical(newIdx);
+      }
     };
 
     mainEl.addEventListener("wheel", handleWheel, { passive: false });
@@ -470,14 +533,29 @@ export function StoryBook() {
     const handleTouchEnd = (e: TouchEvent) => {
       const idx = activeIndexRef.current;
       const section = sectionRefs.current[idx];
-      if (!section || !SECTIONS[idx]?.secondary) return;
-
       const dx = touchStartX - e.changedTouches[0].clientX;
       const dy = touchStartY - e.changedTouches[0].clientY;
 
-      // Solo si el gesto es más horizontal que vertical
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
-        section.scrollBy({ left: dx > 0 ? window.innerWidth : -window.innerWidth, behavior: "smooth" });
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+        // Swipe horizontal → cambio de panel (solo si la escena tiene secundario)
+        if (section && SECTIONS[idx]?.secondary) {
+          if (dx > 0) {
+            panelIndexRef.current[idx] = 1;
+            smoothScrollTo(section, window.innerWidth);
+          } else {
+            panelIndexRef.current[idx] = 0;
+            smoothScrollTo(section, 0);
+          }
+        }
+      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 50) {
+        // Swipe vertical → cambio de escena
+        const newIdx = dy > 0
+          ? Math.min(idx + 1, SECTIONS.length - 1)
+          : Math.max(idx - 1, 0);
+        if (newIdx !== idx) {
+          setActiveIndex(newIdx);
+          smoothScrollTopTo(mainEl, newIdx * window.innerHeight);
+        }
       }
     };
 
@@ -501,7 +579,7 @@ export function StoryBook() {
 
       // Secciones dobles (con secundario) tienen ancho 200vw → ratio máx 50%
       // Usar threshold 0.4 para ellas y 0.7 para las simples
-      const threshold = SECTIONS[idx]?.secondary ? 0.4 : 0.7;
+      const threshold = SECTIONS[idx]?.secondary ? 0.4 : 0.8;
       const observer = new IntersectionObserver(
         ([entry]) => {
           if (entry.isIntersecting) setActiveIndex(idx);
@@ -721,7 +799,7 @@ export function StoryBook() {
             <section
               key={section.key}
               ref={setSectionRef(idx)}
-              className="relative h-screen snap-start snap-always overflow-hidden"
+              className="relative h-screen overflow-hidden"
             >
               <video
                 ref={introVideoRef}
@@ -775,12 +853,12 @@ export function StoryBook() {
             <section
               key={section.key}
               ref={setSectionRef(idx)}
-              className="no-scrollbar h-screen snap-start snap-always flex overflow-x-scroll snap-x snap-mandatory"
+              className="no-scrollbar h-screen flex overflow-x-scroll"
             >
               {/* Panel primario: fondo + card */}
               <div
                 className={cn(
-                  "relative flex h-full w-screen shrink-0 snap-start snap-always items-center justify-center overflow-hidden px-4 py-8 md:px-8",
+                  "relative flex h-full w-screen shrink-0 items-center justify-center overflow-hidden px-4 py-8 md:px-8",
                   scene ? `bg-linear-to-br ${scene.gradient}` : "bg-zinc-900",
                 )}
               >
@@ -835,7 +913,7 @@ export function StoryBook() {
                         const el = sectionRefs.current[idx];
                         if (!el) return;
                         panelIndexRef.current[idx] = 1;
-                        el.scrollTo({ left: window.innerWidth, behavior: "smooth" });
+                        smoothScrollTo(el, window.innerWidth);
                         if (soundEnabledRef.current && s10SecVideoRef.current) {
                           s10SecVideoRef.current.muted = false;
                           void s10SecVideoRef.current.play().catch(() => undefined);
@@ -859,7 +937,7 @@ export function StoryBook() {
                 {/* Bocadillo Enanitos — escena 9 */}
                 {section.key === "s9" && (
                   <div
-                    className="absolute top-12 left-1/2 -translate-x-1/2 z-20 max-w-72 cursor-pointer bubble-float"
+                    className="absolute top-12 left-1/2 -translate-x-1/2 z-20 w-[min(18rem,80vw)] cursor-pointer bubble-float"
                     onClick={() => {
                       const audio = noPerdAudioRef.current;
                       if (!audio) return;
@@ -877,10 +955,10 @@ export function StoryBook() {
 
                 {/* Bocadillo Blancanieves — escena 4 */}
                 {section.key === "s4" && (
-                  <div className="absolute bottom-[30%] left-[50%] z-20 max-w-44 pointer-events-none bubble-float lg:bottom-180 lg:left-220 lg:max-w-48">
-                    <div className="relative rounded-2xl rounded-bl-sm bg-sky-50/70 px-5 py-4 shadow-2xl border-2 border-sky-200/70 backdrop-blur-sm">
+                  <div className="absolute top-[20%] left-[50%] z-20 w-[min(12rem,20vw)] pointer-events-none bubble-float">
+                    <div className="relative rounded-2xl rounded-bl-sm bg-sky-50/70 px-3 py-3 shadow-2xl border-2 border-sky-200/70 backdrop-blur-sm">
                       <span className="block text-[10px] font-bold uppercase tracking-wide text-sky-600 mb-1"></span>
-                      <p className="text-2xl font-black text-gray-900 leading-tight">¡NOOOOOO!!!!</p>
+                      <p className="text-[clamp(1rem,2.5vw,1.5rem)] font-black text-gray-900 leading-tight">¡NOOOOOO!!!!</p>
                       <div style={{ width: 0, height: 0, borderLeft: '12px solid transparent', borderRight: '0px solid transparent', borderTop: '12px solid rgba(240,249,255,0.70)', position: 'absolute', bottom: '-12px', left: '16px' }} />
                     </div>
                   </div>
@@ -890,19 +968,19 @@ export function StoryBook() {
                 {section.key === "s8" && (
                   <div className="absolute inset-0 z-20 pointer-events-none">
                     {/* Vendedora */}
-                    <div className="absolute top-12 right-[5%] max-w-64 bubble-float lg:right-100 lg:max-w-80">
-                      <div className="relative rounded-2xl rounded-tr-sm bg-rose-950/85 px-6 py-5 shadow-2xl border border-rose-800/50 backdrop-blur-sm">
-                        <span className="block text-xs font-bold uppercase tracking-wide text-rose-300 mb-2">La Vendedora</span>
-                        <p className="text-base text-rose-50 leading-snug italic">"Toma esta manzana. Es un regalo para ti."</p>
+                    <div className="absolute top-[8%] right-[5%] w-[min(16rem,22vw)] bubble-float">
+                      <div className="relative rounded-2xl rounded-tr-sm bg-rose-950/85 px-4 py-3 sm:px-6 sm:py-5 shadow-2xl border border-rose-800/50 backdrop-blur-sm">
+                        <span className="block text-[10px] sm:text-xs font-bold uppercase tracking-wide text-rose-300 mb-1 sm:mb-2">La Vendedora</span>
+                        <p className="text-sm sm:text-base text-rose-50 leading-snug italic">"Toma esta manzana. Es un regalo para ti."</p>
                         <div style={{ width: 0, height: 0, borderLeft: '0px solid transparent', borderRight: '14px solid transparent', borderTop: '14px solid rgba(76,5,25,0.85)', position: 'absolute', bottom: '-14px', right: '16px' }} />
                       </div>
                     </div>
 
                     {/* Blancanieves */}
-                    <div className="absolute bottom-[30%] left-[45%] max-w-56 bubble-float-delay lg:bottom-200 lg:left-190 lg:max-w-72">
-                      <div className="relative rounded-2xl rounded-bl-sm bg-sky-50/85 px-6 py-5 shadow-2xl border border-sky-200/60 backdrop-blur-sm">
-                        <span className="block text-xs font-bold uppercase tracking-wide text-sky-600 mb-2">Blancanieves</span>
-                        <p className="text-base text-gray-800 leading-snug italic">"¡Ooohh! Gracias."</p>
+                    <div className="absolute top-[8%] left-[38%] w-[min(14rem,20vw)] bubble-float-delay">
+                      <div className="relative rounded-2xl rounded-bl-sm bg-sky-50/85 px-4 py-3 sm:px-6 sm:py-5 shadow-2xl border border-sky-200/60 backdrop-blur-sm">
+                        <span className="block text-[10px] sm:text-xs font-bold uppercase tracking-wide text-sky-600 mb-1 sm:mb-2">Blancanieves</span>
+                        <p className="text-sm sm:text-base text-gray-800 leading-snug italic">"¡Ooohh! Gracias."</p>
                         <div style={{ width: 0, height: 0, borderLeft: '14px solid transparent', borderRight: '0px solid transparent', borderTop: '14px solid rgba(240,249,255,0.85)', position: 'absolute', bottom: '-14px', left: '16px' }} />
                       </div>
                     </div>
@@ -925,7 +1003,7 @@ export function StoryBook() {
               </div>
 
               {/* Panel secundario: solo imagen/video */}
-              <div className="relative h-full w-screen shrink-0 snap-start snap-always overflow-hidden bg-zinc-900">
+              <div className="relative h-full w-screen shrink-0 overflow-hidden bg-zinc-900">
                 <MediaBackground
                   media={section.secondary!}
                   priority={false}
@@ -961,28 +1039,28 @@ export function StoryBook() {
                       s1BubblesVisible ? "opacity-100" : "opacity-0",
                     )}>
                       {/* El Rey */}
-                      <div className="absolute top-[4%] left-[20%] max-w-44 bubble-float lg:top-10 lg:left-96 lg:max-w-50">
-                        <div className="relative rounded-2xl rounded-bl-sm bg-amber-50/95 px-4 py-3 shadow-xl">
+                      <div className="absolute top-[4%] left-[20%] w-[min(11rem,18vw)] bubble-float">
+                        <div className="relative rounded-2xl rounded-bl-sm bg-amber-50/95 px-3 py-2 sm:px-4 sm:py-3 shadow-xl">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-amber-700 mb-1">El Rey</span>
-                          <p className="text-sm text-gray-800 leading-snug italic">"Hija mía, todo esto te pertenece."</p>
+                          <p className="text-xs sm:text-sm text-gray-800 leading-snug italic">"Hija mía, todo esto te pertenece."</p>
                           <div style={{ width: 0, height: 0, borderLeft: '12px solid transparent', borderRight: '0px solid transparent', borderTop: '12px solid rgba(255,251,235,0.95)', position: 'absolute', bottom: '-12px', left: '16px' }} />
                         </div>
                       </div>
 
                       {/* Blancanieves */}
-                      <div className="absolute bottom-[18%] left-[12%] -translate-x-1/2 max-w-40 bubble-float-delay lg:bottom-176 lg:left-75 lg:max-w-45">
-                        <div className="relative rounded-2xl rounded-br-sm bg-sky-50/95 px-4 py-3 shadow-xl text-center">
+                      <div className="absolute top-[42%] left-[5%] w-[min(10rem,16vw)] bubble-float-delay">
+                        <div className="relative rounded-2xl rounded-br-sm bg-sky-50/95 px-3 py-2 sm:px-4 sm:py-3 shadow-xl text-center">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-sky-600 mb-1">Blancanieves</span>
-                          <p className="text-sm text-gray-800 leading-snug italic">"Oh papá, te amo."</p>
+                          <p className="text-xs sm:text-sm text-gray-800 leading-snug italic">"Oh papá, te amo."</p>
                           <div style={{ width: 0, height: 0, borderLeft: '0px solid transparent', borderRight: '12px solid transparent', borderTop: '12px solid rgba(240,249,255,0.95)', position: 'absolute', bottom: '-12px', right: '16px' }} />
                         </div>
                       </div>
 
                       {/* La Reina */}
-                      <div className="absolute top-[8%] right-[5%] max-w-44 bubble-float-delay2 lg:top-25 lg:right-85 lg:max-w-55">
-                        <div className="relative rounded-2xl rounded-br-sm bg-purple-950/90 px-4 py-3 shadow-xl border border-purple-700/40">
+                      <div className="absolute top-[8%] right-[5%] w-[min(12rem,18vw)] bubble-float-delay2">
+                        <div className="relative rounded-2xl rounded-br-sm bg-purple-950/90 px-3 py-2 sm:px-4 sm:py-3 shadow-xl border border-purple-700/40">
                           <span className="block text-[10px] font-bold uppercase tracking-wide text-purple-300 mb-1">La Reina</span>
-                          <p className="text-sm text-purple-100 leading-snug italic">"¡Jum! Tarde que temprano esto será mío y de nadie más…"</p>
+                          <p className="text-xs sm:text-sm text-purple-100 leading-snug italic">"¡Jum! Tarde que temprano esto será mío y de nadie más…"</p>
                           <div style={{ width: 0, height: 0, borderLeft: '12px solid transparent', borderRight: '0px solid transparent', borderTop: '12px solid rgba(59,7,100,0.9)', position: 'absolute', bottom: '-12px', right: '16px' }} />
                         </div>
                       </div>
@@ -993,19 +1071,19 @@ export function StoryBook() {
                 {section.key === "s5" && (
                   <div className="absolute inset-0 z-20 pointer-events-none">
                     {/* Cazador */}
-                    <div className="absolute top-8 left-[30%] max-w-52 bubble-float lg:left-145 lg:max-w-64">
+                    <div className="absolute top-[8%] left-[30%] w-[min(13rem,20vw)] bubble-float">
                       <div className="relative rounded-2xl rounded-tl-sm bg-amber-900/85 px-4 py-3 shadow-2xl border border-amber-700/50 backdrop-blur-sm">
                         <span className="block text-[10px] font-bold uppercase tracking-wide text-amber-300 mb-1">El Cazador</span>
-                        <p className="text-sm text-amber-50 leading-snug italic">"Corre Blancanieves, huye hacia lo profundo del bosque, escóndete muy bien, no dejen que te encuentren."</p>
+                        <p className="text-xs sm:text-sm text-amber-50 leading-snug italic">"Corre Blancanieves, huye hacia lo profundo del bosque, escóndete muy bien, no dejen que te encuentren."</p>
                         <div style={{ width: 0, height: 0, borderLeft: '12px solid transparent', borderRight: '0px solid transparent', borderTop: '12px solid rgba(120,53,15,0.85)', position: 'absolute', bottom: '-12px', left: '16px' }} />
                       </div>
                     </div>
 
                     {/* Blancanieves */}
-                    <div className="absolute bottom-[30%] right-[5%] max-w-56 bubble-float-delay lg:bottom-180 lg:right-150 lg:max-w-72">
-                      <div className="relative rounded-2xl rounded-br-sm bg-sky-50/85 px-6 py-5 shadow-2xl border border-sky-200/60 backdrop-blur-sm text-right">
-                        <span className="block text-xs font-bold uppercase tracking-wide text-sky-600 mb-2">Blancanieves</span>
-                        <p className="text-base text-gray-800 leading-snug italic">"¡Lo haré! Gracias...!"</p>
+                    <div className="absolute top-[18%] right-[28%] w-[min(14rem,20vw)] bubble-float-delay">
+                      <div className="relative rounded-2xl rounded-br-sm bg-sky-50/85 px-4 py-3 sm:px-6 sm:py-5 shadow-2xl border border-sky-200/60 backdrop-blur-sm text-right">
+                        <span className="block text-[10px] sm:text-xs font-bold uppercase tracking-wide text-sky-600 mb-1 sm:mb-2">Blancanieves</span>
+                        <p className="text-sm sm:text-base text-gray-800 leading-snug italic">"¡Lo haré! Gracias...!"</p>
                         <div style={{ width: 0, height: 0, borderLeft: '0px solid transparent', borderRight: '12px solid transparent', borderTop: '12px solid rgba(240,249,255,0.85)', position: 'absolute', bottom: '-12px', right: '16px' }} />
                       </div>
                     </div>
@@ -1089,7 +1167,7 @@ export function StoryBook() {
                   <button
                     onClick={() => {
                       setStoryStarted(false);
-                      mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                      if (mainRef.current) { setActiveIndex(0); smoothScrollTopTo(mainRef.current, 0); }
                     }}
                     className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 rounded-full bg-amber-400/90 px-7 py-3 text-sm font-bold text-amber-950 shadow-xl backdrop-blur-sm transition hover:bg-amber-300 active:scale-95"
                   >
@@ -1143,7 +1221,7 @@ export function StoryBook() {
             key={section.key}
             ref={setSectionRef(idx)}
             className={cn(
-              "relative flex h-screen snap-start snap-always items-center justify-center overflow-hidden px-4 py-8 md:px-8",
+              "relative flex h-screen items-center justify-center overflow-hidden px-4 py-8 md:px-8",
               scene ? `bg-linear-to-br ${scene.gradient}` : "bg-zinc-900",
             )}
           >
@@ -1155,7 +1233,7 @@ export function StoryBook() {
             {scene && <SceneOverlay scene={scene} isActive={activeIndex === idx} />}
 
             {section.key === "s6" && (
-              <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 pointer-events-none max-w-72 bubble-float">
+              <div className="absolute top-8 left-1/2 -translate-x-1/2 z-20 pointer-events-none w-[min(18rem,80vw)] bubble-float">
                 <div className="relative rounded-2xl rounded-bl-sm bg-sky-50/85 px-6 py-5 shadow-2xl border border-sky-200/60 backdrop-blur-sm text-center">
                   <span className="block text-xs font-bold uppercase tracking-wide text-sky-600 mb-2">Blancanieves</span>
                   <p className="text-base text-gray-800 leading-snug italic">"Todo aquí es pequeño... quizás pueda descansar."</p>
@@ -1222,7 +1300,7 @@ export function StoryBook() {
                   s3BubbleVisible ? "opacity-100" : "opacity-0",
                 )}>
                   {/* Espejo Mágico */}
-                  <div className="absolute top-[2%] left-[55%] -translate-x-1/2 max-w-lg w-[55%] bubble-float">
+                  <div className="absolute top-[2%] left-1/2 -translate-x-1/2 w-[min(32rem,88vw)] bubble-float">
                     <div className="relative rounded-2xl bg-amber-50/50 px-6 py-5 shadow-2xl border-2 border-amber-300/60 text-center backdrop-blur-sm">
                       <span className="block text-xs font-bold uppercase tracking-widest text-amber-600 mb-2">✦ El Espejo Mágico ✦</span>
                       <p className="text-base text-gray-800 leading-relaxed italic">"En verdad, Blancanieves es más bella que la reina, por ser noble y pura de corazón."</p>
